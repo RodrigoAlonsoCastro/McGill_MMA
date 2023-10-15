@@ -1,5 +1,5 @@
 # IMPORT DATASET AND LIBRARIES 
-board_games = read.csv("C:/_McGill MMA 2023/2. Fall 2023/MGSC 661 Multivariate Statistical Analysis/Labs/Lab 2/board_games_fall_2023.csv")
+board_games = read.csv("board_games_fall_2023.csv")
 attach(board_games) 
 View(board_games)
 
@@ -202,7 +202,7 @@ anova(reg7a, reg7b, reg7c, reg7d)
 
 reg8 = lm(avg_rating~avg_timeplay+poly(age,4))
 summary(reg8)
-
+stargazer(reg8, type='html')
 
 # 9. Spline regression 
 #######################
@@ -211,7 +211,8 @@ summary(reg8)
 k1 = quantile(avg_timeplay, 0.25)
 k2 = quantile(avg_timeplay, 0.50)
 k3 = quantile(avg_timeplay, 0.75)
-
+knots <- c(k1, k2, k3)
+num_knots <- length(knots)
 ## Run spline regression
 reg9a = lm(avg_rating~bs(avg_timeplay, knots=c(k1,k2,k3), degree=1))
 reg9b = lm(avg_rating~bs(avg_timeplay, knots=c(k1,k2,k3), degree=2))
@@ -222,29 +223,37 @@ stargazer(reg9a, reg9b, reg9c, type="html")
 ## Scatterplots
 plot1 = ggplot(data = data.frame(avg_timeplay, avg_rating), aes(y=avg_rating, x=avg_timeplay)) +
   geom_point(color = "grey") +
-  geom_smooth(method = "lm", formula = y~bs(x,knots=c(k1,k2,k3), degree=1), aes(color="1st")) +
+  geom_smooth(method = "lm", formula = y~bs(x,knots=knots, degree=1), aes(color=paste("Degree 1 (num_knots =", num_knots, ")", sep = "")))+
   geom_vline(xintercept=c(k1,k2,k3), linetype="dashed") +
-  labs(title = "Spline Regression 1", color = "Degree") +
-  scale_color_manual(values = c("1st"="red")) +
+  labs(title = "Spline Regression 1", color = "Legend") +
+  scale_color_manual(values = "red") +
   theme(legend.key.size=unit(0.5, "lines"))
 
 plot2 = ggplot(data = data.frame(avg_timeplay, avg_rating), aes(y=avg_rating, x=avg_timeplay)) +
   geom_point(color = "grey") +
-  geom_smooth(method = "lm", formula = y~bs(x,knots=c(k1,k2,k3), degree=2), aes(color="2nd")) +
+  geom_smooth(method = "lm", formula = y~bs(x,knots=knots, degree=2), aes(color=paste("Degree 2 (num_knots =", num_knots, ")", sep = "")))+
   geom_vline(xintercept=c(k1,k2,k3), linetype="dashed") +
-  labs(title = "Spline Regression 2", color = "Degree") +
-  scale_color_manual(values = c("2nd"="red")) +
+  labs(title = "Spline Regression 2", color = "Legend") +
+  scale_color_manual(values = 'red') +
   theme(legend.key.size=unit(0.5, "lines"))
 
 plot3 = ggplot(data = data.frame(avg_timeplay, avg_rating), aes(y=avg_rating, x=avg_timeplay)) +
   geom_point(color = "grey") +
-  geom_smooth(method = "lm", formula = y~bs(x,knots=c(k1,k2,k3), degree=3), aes(color="3rd")) +
-  geom_vline(xintercept=c(k1,k2,k3), linetype="dashed") +
-  labs(title = "Spline Regression 3", color = "Degree") +
-  scale_color_manual(values = c("3rd"="red")) +
-  theme(legend.key.size=unit(0.5, "lines"))
+  geom_smooth(method = "lm", formula = y ~ bs(x, knots = knots, degree = 3), aes(color = paste("Degree 3 (num_knots =", num_knots, ")", sep = "")))+
+  geom_vline(xintercept = knots, linetype = "dashed") +
+  labs(title = "Spline Regression 3", color = "Legend") +
+  scale_color_manual(values = "red") +
+  theme(legend.key.size = unit(0.5, "lines"))
+
+
+
 
 grid.arrange(plot1, plot2, plot3, ncol = 2, nrow = 2)
+
+
+
+
+
 
 
 # 10. Validation set test 
@@ -313,3 +322,63 @@ for (degree in 1:10) {
 
 # 13. Cross-validation in a multiple spline model 
 ##################################################
+
+## Define the knots
+k1_age = quantile(age, 0.25)
+k2_age = quantile(age, 0.50)
+k3_age = quantile(age, 0.75)
+knots_age = c(k1_age, k2_age, k3_age)
+
+
+
+k1_year = quantile(year, 0.25)
+k2_year = quantile(year, 0.50)
+k3_year = quantile(year, 0.75)
+knots_year = c(k1_year, k2_year, k3_year)
+
+
+k1_votes = quantile(num_votes, 0.25)
+k2_votes = quantile(num_votes, 0.50)
+k3_votes = quantile(num_votes, 0.75)
+knots_votes = c(k1_votes, k2_votes, k3_votes)
+
+k1_avg_timeplay = quantile(avg_timeplay, 0.25)
+k2_avg_timeplay = quantile(avg_timeplay, 0.50)
+k3_avg_timeplay = quantile(avg_timeplay, 0.75)
+knots_avg_timeplay = c(k1_avg_timeplay, k2_avg_timeplay, k3_avg_timeplay)
+
+
+
+
+
+
+## Run spline regression
+results = data.frame(
+  degree_age = numeric(0),
+  degree_year = numeric(0),
+  degree_votes = numeric(0),
+  degree_timeplay = numeric(0),
+  mse = numeric(0)
+)
+for (degree_age in 1:5) {
+  for (degree_year in 1:5){
+    for (degree_votes in 1:5){
+      for (degree_timeplay in 1:5){
+        fit = glm(avg_rating~
+                  bs(age, knots=knots_age, degree = degree_age) + 
+                  bs(year, knots =knots_year, degree = degree_year) + 
+                  bs(num_votes, knots =knots_votes, degree = degree_votes) +
+                  bs(avg_timeplay, knots =knots_avg_timeplay, degree = degree_timeplay))
+          
+        mse = cv.glm(board_games, fit, K=20)$delta[1]
+        final = c(degree_age,degree_year,degree_votes,degree_timeplay,mse)
+        results = rbind(results, final)
+        print(mse)
+      }
+    }
+  }
+}
+
+
+names(results) = c('degree_age','degree_year','degree_votes','degree_timeplay','mse')
+results[order(results$mse),][1,]
