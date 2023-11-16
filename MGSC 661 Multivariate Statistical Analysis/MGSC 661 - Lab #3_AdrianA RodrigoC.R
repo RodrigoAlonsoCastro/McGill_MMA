@@ -1,5 +1,5 @@
-election = read.csv("C:/_McGill MMA 2023/2. Fall 2023/MGSC 661 Multivariate Statistical Analysis/Labs/Lab 3/election_data.csv")
-wine = read.csv("C:/_McGill MMA 2023/2. Fall 2023/MGSC 661 Multivariate Statistical Analysis/Labs/Lab 3/wine_data.csv")
+election = read.csv("election_data.csv")
+wine = read.csv("wine_data.csv")
 
 library(ggplot2)
 
@@ -167,3 +167,56 @@ myqda
 
 ## C) Plot classifications regions
 partimat(cultivar~alcohol+acid, method="qda",image.colors=c("light grey", "light green", "white")) 
+
+### Cross validation
+
+
+library(boot)
+library(caret) 
+
+##### Train Test Split
+
+set.seed(123)
+train_index = createDataPartition(wine$cultivar, p = 0.5, list = FALSE)
+training_data = wine[train_index, ]
+testing_data = wine[-train_index, ]
+
+
+myqda = qda(cultivar~alcohol+acid, data = training_data)
+mylda = lda(cultivar~alcohol+acid, data = training_data)
+
+preds_lda = predict(mylda, testing_data)$class
+preds_qda = predict(myqda, testing_data)$class
+
+
+mylda_confusion = confusionMatrix(preds_lda, testing_data$cultivar)
+myqda_confusion = confusionMatrix(preds_qda, testing_data$cultivar)
+
+lda_error_rate = 1 - sum(diag(mylda_confusion$table)) / sum(mylda_confusion$table)
+qda_error_rate = 1 - sum(diag(myqda_confusion$table)) / sum(myqda_confusion$table)
+qda_error_rate
+lda_error_rate
+
+###### KFold Validation
+
+set.seed(123)
+ctrl = trainControl(method = "cv", number = 10)
+lda_model = train(cultivar~alcohol+acid, data = wine, method = "lda", trControl = ctrl)
+qda_model = train(cultivar~alcohol+acid, data = wine, method = "qda", trControl = ctrl)
+lda_error_rate = 1-lda_model$results$Accuracy
+qda_error_rate = 1-qda_model$results$Accuracy
+lda_error_rate
+qda_error_rate
+
+###### LOOCV
+
+set.seed(123)
+ctrl_loocv = trainControl(method = "LOOCV")
+lda_model = train(cultivar~alcohol+acid, data = wine, method = "lda", trControl = ctrl_loocv)
+qda_model = train(cultivar~alcohol+acid, data = wine, method = "qda", trControl = ctrl_loocv)
+lda_error_rate = 1-lda_model$results$Accuracy
+qda_error_rate = 1-qda_model$results$Accuracy
+lda_error_rate
+qda_error_rate
+
+
